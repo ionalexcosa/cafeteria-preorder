@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Orders</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero hero-compact">
+    <div class="brand">
+      <div class="dot"></div>
+      <span class="wordmark">Cafeteria Pre-Order</span>
+    </div>
+    <div class="page-meta">
+      <p class="eyebrow">Order history</p>
+      <h1>My Orders</h1>
+      <p class="subtitle">Track your ahead-of-the-line picks in one calm view.</p>
+    </div>
+    <a class="orders-link" href="index.html">Back to Menu</a>
+  </header>
+
+  <main>
+    <section class="orders-grid" aria-live="polite">
+      <p class="empty-state" data-empty>Nothing here yet. Place an order to see it appear.</p>
+      <div class="orders-container" id="orders-container"></div>
+    </section>
+  </main>
+
+  <template id="order-card-template">
+    <article class="order-card">
+      <div class="order-head">
+        <div>
+          <p class="eyebrow">Order</p>
+          <h2 class="order-id"></h2>
+        </div>
+        <span class="status-badge" data-status></span>
+      </div>
+      <div class="order-items" data-items></div>
+      <div class="order-footer">
+        <div class="total">
+          <span>Total</span>
+          <strong class="total-price"></strong>
+        </div>
+        <button class="secondary-btn" type="button" data-update>Update Status</button>
+      </div>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
