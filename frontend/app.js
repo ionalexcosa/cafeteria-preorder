@@ -1,41 +1,66 @@
-// Core data
-const menuItems = [
-  { id: 'flat-white', name: 'Flat White', description: 'Velvety espresso with microfoam.', price: 4.2, mealType: 'coffee' },
-  { id: 'honey-oat-latte', name: 'Honey Oat Latte', description: 'Oat milk, espresso, raw honey drizzle.', price: 4.9, mealType: 'coffee' },
-  { id: 'salmon-bagel', name: 'Smoked Salmon Bagel', description: 'Sesame bagel, cream cheese, capers.', price: 7.5, mealType: 'food' },
-  { id: 'almond-croissant', name: 'Almond Croissant', description: 'Buttery layers with frangipane.', price: 3.8, mealType: 'pastry' },
-  { id: 'chia-pudding', name: 'Chia Pudding', description: 'Coconut milk, seasonal fruit compote.', price: 5.2, mealType: 'food' },
-  { id: 'matcha-tonic', name: 'Matcha Tonic', description: 'Ceremonial matcha, sparkling tonic.', price: 4.6, mealType: 'refresh' },
-];
+// API Base URL
+const API_BASE = "https://q7l5dkrcd2.execute-api.eu-north-1.amazonaws.com/prod";
 
-const STORAGE_KEY = 'orders';
-const STATUS_FLOW = ['Placed', 'Accepted', 'Ready', 'Collected'];
+// Local storage key for orders
+const ORDERS_STORAGE_KEY = 'cafeteria_orders';
 
-// Utilities
-const createUUID = () =>
-  (crypto?.randomUUID?.() ||
-    'xxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    }));
+// ============ LOCAL STORAGE HELPERS ============
 
-const readOrders = () => {
+function getStoredOrders() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    const orders = localStorage.getItem(ORDERS_STORAGE_KEY);
+    return orders ? JSON.parse(orders) : [];
   } catch {
     return [];
   }
-};
+}
 
-const writeOrders = orders => localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+function saveOrder(order) {
+  const orders = getStoredOrders();
+  orders.unshift(order); // Add new order at the beginning
+  localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
+}
 
-// Menu page logic
-function renderMenu() {
-  const menuContainer = document.querySelector('.menu-grid');
+function updateStoredOrderStatus(orderId, newStatus) {
+  const orders = getStoredOrders();
+  const order = orders.find(o => o.OrderId === orderId);
+  if (order) {
+    order.status = newStatus;
+    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
+  }
+  return order;
+}
+
+// ============ MENU PAGE ============
+
+// Fetch menu from API and render cards
+async function fetchAndRenderMenu() {
+  const menuContainer = document.getElementById('menu-container');
   if (!menuContainer) return;
 
-  menuContainer.innerHTML = '';
+  try {
+    const response = await fetch(`${API_BASE}/menu`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const menuItems = await response.json();
+    renderMenu(menuItems, menuContainer);
+  } catch (error) {
+    console.error('Failed to fetch menu:', error);
+    menuContainer.innerHTML = '<p class="error">Failed to load menu. Please try again later.</p>';
+    alert('Failed to load menu. Please check your connection.');
+  }
+}
+
+// Render menu items into the container
+function renderMenu(menuItems, container) {
+  container.innerHTML = '';
+
+  if (!menuItems || menuItems.length === 0) {
+    container.innerHTML = '<p>No menu items available.</p>';
+    return;
+  }
+
   menuItems.forEach(item => {
     const card = document.createElement('article');
     card.className = 'menu-card';
@@ -45,133 +70,174 @@ function renderMenu() {
           <h2>${item.name}</h2>
           <p class="description">${item.description}</p>
         </div>
-        <span class="price">$${item.price.toFixed(2)}</span>
+        <span class="price">$${Number(item.price).toFixed(2)}</span>
       </div>
       <label class="quantity">
         <span>Qty</span>
-        <input type="number" min="0" value="0" data-item="${item.id}" aria-label="${item.name} quantity">
+        <input type="number" min="0" value="0" data-id="${item.itemId}" aria-label="${item.name} quantity">
       </label>
     `;
-    menuContainer.appendChild(card);
+    container.appendChild(card);
   });
-
-  const placeOrderBtn = document.querySelector('.primary-btn');
-  placeOrderBtn?.addEventListener('click', placeOrder);
 }
 
-function placeOrder() {
-  const inputs = [...document.querySelectorAll('input[data-item]')];
-  const selections = inputs
-    .map(input => ({
-      id: input.dataset.item,
-      quantity: Number(input.value) || 0,
-    }))
-    .filter(entry => entry.quantity > 0);
+// Place order via API
+async function placeOrder() {
+  const inputs = [...document.querySelectorAll('input[data-id]')];
+  
+  const items = inputs
+    .map(input => {
+      const card = input.closest('.menu-card');
+      const name = card.querySelector('h2').textContent;
+      const priceText = card.querySelector('.price').textContent;
+      const price = parseFloat(priceText.replace('$', ''));
+      
+      return {
+        itemId: input.dataset.id,
+        qty: Number(input.value) || 0,
+        name: name,
+        price: price,
+      };
+    })
+    .filter(entry => entry.qty > 0);
 
-  if (!selections.length) {
-    alert('Add at least one item to place an order.');
+  if (items.length === 0) {
+    alert('Please select at least one item.');
     return;
   }
 
-  const items = selections.map(sel => {
-    const menuItem = menuItems.find(m => m.id === sel.id);
-    return {
-      id: menuItem.id,
-      name: menuItem.name,
-      price: menuItem.price,
-      quantity: sel.quantity,
-      subtotal: Number((menuItem.price * sel.quantity).toFixed(2)),
+  // Prepare the request body (API only needs itemId and qty)
+  const apiItems = items.map(({ itemId, qty }) => ({ itemId, qty }));
+
+  console.log('Sending order:', JSON.stringify({ items: apiItems }));
+
+  try {
+    const response = await fetch(`${API_BASE}/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ items: apiItems }),
+    });
+
+    console.log('Response status:', response.status);
+    console.log('Response ok:', response.ok);
+
+    const data = await response.json();
+    console.log('Response data:', data);
+
+    if (!response.ok) {
+      throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
+    }
+
+    // Save order to localStorage with full item details
+    const orderToSave = {
+      ...data,
+      items: items.map(item => ({
+        itemId: item.itemId,
+        name: item.name,
+        quantity: item.qty,
+        price: item.price * item.qty, // Total price for this item
+      })),
+      totalPrice: items.reduce((sum, item) => sum + (item.price * item.qty), 0),
+      status: 'Placed',
     };
-  });
+    saveOrder(orderToSave);
 
-  const totalPrice = items.reduce((sum, item) => sum + item.subtotal, 0);
+    alert(`Order placed! Order ID: ${data.OrderId}`);
 
-  const order = {
-    id: createUUID(),
-    items,
-    totalPrice: Number(totalPrice.toFixed(2)),
-    status: 'Placed',
-    createdAt: new Date().toISOString(),
-  };
-
-  const orders = readOrders();
-  orders.push(order);
-  writeOrders(orders);
-
-  inputs.forEach(input => (input.value = 0));
-  alert('Order placed! Check My Orders to track it.');
+    // Reset all quantity inputs
+    inputs.forEach(input => (input.value = 0));
+  } catch (error) {
+    console.error('Failed to place order:', error);
+    console.error('Error details:', error.message);
+    alert('Failed to place order. Please try again.');
+  }
 }
 
-// Orders page logic
-function loadOrders() {
-  const container = document.getElementById('orders-container');
-  if (!container) return;
+// ============ ORDERS PAGE ============
 
-  const orders = readOrders();
-  renderOrders(orders);
-}
-
-function renderOrders(orders) {
-  const container = document.getElementById('orders-container');
+function fetchAndRenderOrders() {
+  const ordersContainer = document.getElementById('orders-container');
   const emptyState = document.querySelector('[data-empty]');
-  const template = document.getElementById('order-card-template');
-  if (!container || !template) return;
+  if (!ordersContainer) return;
 
-  container.innerHTML = '';
+  const orders = getStoredOrders();
 
-  if (!orders.length) {
+  if (orders.length === 0) {
     if (emptyState) emptyState.style.display = 'block';
+    ordersContainer.innerHTML = '';
     return;
   }
+
   if (emptyState) emptyState.style.display = 'none';
 
+  const template = document.getElementById('order-card-template');
+  ordersContainer.innerHTML = '';
+
   orders.forEach(order => {
-    const node = template.content.cloneNode(true);
-    const card = node.querySelector('.order-card');
-    card.dataset.orderId = order.id;
+    const card = template.content.cloneNode(true);
 
-    node.querySelector('.order-id').textContent = `#${order.id.slice(0, 6)}`;
-    const statusBadge = node.querySelector('[data-status]');
-    statusBadge.textContent = order.status;
-    statusBadge.setAttribute('data-status', order.status);
+    // Order ID (show short version)
+    const shortId = order.OrderId ? order.OrderId.slice(0, 8) + '...' : 'N/A';
+    card.querySelector('.order-id').textContent = shortId;
+    card.querySelector('.order-id').title = order.OrderId;
 
-    const itemsContainer = node.querySelector('[data-items]');
-    order.items.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'item-row';
-      row.innerHTML = `
-        <span>${item.name}</span>
-        <span>x${item.quantity}</span>
-        <span>$${item.price.toFixed(2)}</span>
-      `;
-      itemsContainer.appendChild(row);
-    });
+    // Status badge
+    const statusBadge = card.querySelector('[data-status]');
+    const status = order.status || 'Placed';
+    statusBadge.textContent = status;
+    statusBadge.setAttribute('data-status', status.toLowerCase());
 
-    node.querySelector('.total-price').textContent = `$${order.totalPrice.toFixed(2)}`;
+    // Order items
+    const itemsContainer = card.querySelector('[data-items]');
+    if (order.items && order.items.length > 0) {
+      itemsContainer.innerHTML = order.items.map(item => `
+        <div class="order-item">
+          <span class="item-name">${item.name || item.itemId}</span>
+          <span class="item-qty">×${item.quantity || item.qty}</span>
+          <span class="item-price">$${Number(item.price).toFixed(2)}</span>
+        </div>
+      `).join('');
+    }
 
-    node.querySelector('[data-update]')?.addEventListener('click', () => {
-      cycleStatus(order.id);
-    });
+    // Total price
+    card.querySelector('.total-price').textContent = `$${Number(order.totalPrice).toFixed(2)}`;
 
-    container.appendChild(node);
+    // Update status button
+    const updateBtn = card.querySelector('[data-update]');
+    updateBtn.addEventListener('click', () => cycleOrderStatus(order.OrderId));
+
+    ordersContainer.appendChild(card);
   });
 }
 
-function cycleStatus(orderId) {
-  const orders = readOrders();
-  const order = orders.find(o => o.id === orderId);
+function cycleOrderStatus(orderId) {
+  const statuses = ['Placed', 'Preparing', 'Ready', 'Collected'];
+  const orders = getStoredOrders();
+  const order = orders.find(o => o.OrderId === orderId);
+  
   if (!order) return;
 
-  const currentIndex = STATUS_FLOW.indexOf(order.status);
-  const nextIndex = currentIndex === -1 || currentIndex === STATUS_FLOW.length - 1 ? STATUS_FLOW.length - 1 : currentIndex + 1;
-  order.status = STATUS_FLOW[nextIndex];
+  const currentIndex = statuses.indexOf(order.status || 'Placed');
+  const nextIndex = (currentIndex + 1) % statuses.length;
+  const newStatus = statuses[nextIndex];
 
-  writeOrders(orders);
-  renderOrders(orders);
+  updateStoredOrderStatus(orderId, newStatus);
+  fetchAndRenderOrders(); // Re-render the orders
 }
 
-// Init
+// ============ INITIALIZATION ============
+
 document.addEventListener('DOMContentLoaded', () => {
-  renderMenu();
-  loadOrders();
+  // Menu page
+  fetchAndRenderMenu();
+
+  const placeOrderBtn = document.getElementById('place-order-btn');
+  if (placeOrderBtn) {
+    placeOrderBtn.addEventListener('click', placeOrder);
+  }
+
+  // Orders page
+  fetchAndRenderOrders();
 });

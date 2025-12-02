@@ -24,95 +24,13 @@
   </header>
 
   <main>
-    <section class="menu-grid" aria-label="Menu items">
-      <article class="menu-card">
-        <div class="card-top">
-          <div>
-            <h2>Flat White</h2>
-            <p class="description">Velvety espresso with microfoam, balanced and mellow.</p>
-          </div>
-          <span class="price">$4.20</span>
-        </div>
-        <label class="quantity">
-          <span>Qty</span>
-          <input type="number" min="0" value="0" aria-label="Flat White quantity">
-        </label>
-      </article>
-
-      <article class="menu-card">
-        <div class="card-top">
-          <div>
-            <h2>Honey Oat Latte</h2>
-            <p class="description">Espresso, steamed oat milk, drizzle of raw honey.</p>
-          </div>
-          <span class="price">$4.90</span>
-        </div>
-        <label class="quantity">
-          <span>Qty</span>
-          <input type="number" min="0" value="0" aria-label="Honey Oat Latte quantity">
-        </label>
-      </article>
-
-      <article class="menu-card">
-        <div class="card-top">
-          <div>
-            <h2>Smoked Salmon Bagel</h2>
-            <p class="description">Sesame bagel, cream cheese, capers, lemon zest.</p>
-          </div>
-          <span class="price">$7.50</span>
-        </div>
-        <label class="quantity">
-          <span>Qty</span>
-          <input type="number" min="0" value="0" aria-label="Smoked Salmon Bagel quantity">
-        </label>
-      </article>
-
-      <article class="menu-card">
-        <div class="card-top">
-          <div>
-            <h2>Almond Croissant</h2>
-            <p class="description">Buttery layers filled with frangipane, toasted almonds.</p>
-          </div>
-          <span class="price">$3.80</span>
-        </div>
-        <label class="quantity">
-          <span>Qty</span>
-          <input type="number" min="0" value="0" aria-label="Almond Croissant quantity">
-        </label>
-      </article>
-
-      <article class="menu-card">
-        <div class="card-top">
-          <div>
-            <h2>Chia Pudding</h2>
-            <p class="description">Coconut milk, seasonal fruit, blush pink berry compote.</p>
-          </div>
-          <span class="price">$5.20</span>
-        </div>
-        <label class="quantity">
-          <span>Qty</span>
-          <input type="number" min="0" value="0" aria-label="Chia Pudding quantity">
-        </label>
-      </article>
-
-      <article class="menu-card">
-        <div class="card-top">
-          <div>
-            <h2>Matcha Tonic</h2>
-            <p class="description">Ceremonial matcha, sparkling tonic, citrus twist.</p>
-          </div>
-          <span class="price">$4.60</span>
-        </div>
-        <label class="quantity">
-          <span>Qty</span>
-          <input type="number" min="0" value="0" aria-label="Matcha Tonic quantity">
-        </label>
-      </article>
-    </section>
+    <div id="menu-container" class="menu-grid" aria-label="Menu items">
+      <p>Loading menu...</p>
+    </div>
   </main>
 
   <footer class="footer">
-    <button class="primary-btn" type="button">Place Order</button>
+    <button id="place-order-btn" class="primary-btn" type="button">Place Order</button>
   </footer>
 
   <script src="app.js"></script>
