@@ -8,7 +8,7 @@ const ORDERS_STORAGE_KEY = 'cafeteria_orders';
 // Replace these placeholders with your actual Cognito values
 const COGNITO_DOMAIN = "https://eu-north-1y30bfsr0f.auth.eu-north-1.amazoncognito.com";
 const COGNITO_CLIENT_ID = "4l74mp12dj8g8ddo438uudbg2a";
-const COGNITO_REDIRECT_URI = "https://main.d2yeykc7ilc7l0.amplifyapp.com";
+const COGNITO_REDIRECT_URI = "https://main.d2yeykc7ilc7l0.amplifyapp.com/";
 const COGNITO_SCOPES = "openid email";
 const COGNITO_RESPONSE_TYPE = "token";
 
