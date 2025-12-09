@@ -4,6 +4,173 @@ const API_BASE = "https://q7l5dkrcd2.execute-api.eu-north-1.amazonaws.com/prod";
 // Local storage key for orders
 const ORDERS_STORAGE_KEY = 'cafeteria_orders';
 
+// ============ COGNITO CONFIGURATION ============
+// Replace these placeholders with your actual Cognito values
+const COGNITO_DOMAIN = "https://eu-north-1y30bfsr0f.auth.eu-north-1.amazoncognito.com";
+const COGNITO_CLIENT_ID = "4l74mp12dj8g8ddo438uudbg2a";
+const COGNITO_REDIRECT_URI = "https://main.d2yeykc7ilc7l0.amplifyapp.com";
+const COGNITO_SCOPES = "openid email";
+const COGNITO_RESPONSE_TYPE = "token";
+
+// Local storage keys for auth tokens
+const ID_TOKEN_KEY = 'cognito_id_token';
+const ACCESS_TOKEN_KEY = 'cognito_access_token';
+
+// ============ AUTH HELPER FUNCTIONS ============
+
+/**
+ * Parse tokens from URL hash after Cognito redirect
+ * Expected format: #id_token=XYZ&access_token=ABC&token_type=Bearer&expires_in=3600
+ */
+function parseHashTokens() {
+  const hash = window.location.hash.substring(1); // Remove the '#'
+  if (!hash) return null;
+
+  const params = new URLSearchParams(hash);
+  const idToken = params.get('id_token');
+  const accessToken = params.get('access_token');
+  const expiresIn = params.get('expires_in');
+
+  if (idToken && accessToken) {
+    // Calculate expiration time
+    const expirationTime = Date.now() + (parseInt(expiresIn, 10) || 3600) * 1000;
+
+    // Save tokens to localStorage
+    localStorage.setItem(ID_TOKEN_KEY, idToken);
+    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    localStorage.setItem('token_expiration', expirationTime.toString());
+
+    // Clean the URL (remove hash)
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+
+    return { idToken, accessToken, expiresIn };
+  }
+
+  return null;
+}
+
+/**
+ * Get the stored ID token (used for API authorization)
+ * Returns null if no token or token is expired
+ */
+function getIdToken() {
+  const token = localStorage.getItem(ID_TOKEN_KEY);
+  const expiration = localStorage.getItem('token_expiration');
+
+  if (!token) return null;
+
+  // Check if token is expired
+  if (expiration && Date.now() > parseInt(expiration, 10)) {
+    // Token expired, clear storage
+    clearAuthTokens();
+    return null;
+  }
+
+  return token;
+}
+
+/**
+ * Get the stored access token
+ * Returns null if no token or token is expired
+ */
+function getAccessToken() {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+  const expiration = localStorage.getItem('token_expiration');
+
+  if (!token) return null;
+
+  // Check if token is expired
+  if (expiration && Date.now() > parseInt(expiration, 10)) {
+    clearAuthTokens();
+    return null;
+  }
+
+  return token;
+}
+
+/**
+ * Check if user is currently logged in
+ */
+function isLoggedIn() {
+  return getIdToken() !== null;
+}
+
+/**
+ * Clear all auth tokens from localStorage
+ */
+function clearAuthTokens() {
+  localStorage.removeItem(ID_TOKEN_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem('token_expiration');
+}
+
+/**
+ * Redirect to Cognito Hosted UI for login
+ */
+function redirectToLogin() {
+  const loginUrl = `${COGNITO_DOMAIN}/login?` +
+    `client_id=${COGNITO_CLIENT_ID}` +
+    `&response_type=${COGNITO_RESPONSE_TYPE}` +
+    `&scope=${encodeURIComponent(COGNITO_SCOPES)}` +
+    `&redirect_uri=${encodeURIComponent(COGNITO_REDIRECT_URI)}`;
+  
+  window.location.href = loginUrl;
+}
+
+/**
+ * Logout user - clear tokens and optionally redirect to Cognito logout
+ */
+function logout() {
+  clearAuthTokens();
+  updateAuthUI();
+  
+  // Optionally redirect to Cognito logout endpoint
+  const logoutUrl = `${COGNITO_DOMAIN}/logout?` +
+    `client_id=${COGNITO_CLIENT_ID}` +
+    `&logout_uri=${encodeURIComponent(COGNITO_REDIRECT_URI)}`;
+  
+  window.location.href = logoutUrl;
+}
+
+/**
+ * Update the UI to reflect login state
+ */
+function updateAuthUI() {
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const authStatus = document.getElementById('auth-status');
+
+  if (!loginBtn || !logoutBtn || !authStatus) return;
+
+  if (isLoggedIn()) {
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-block';
+    authStatus.textContent = 'Logged in';
+    authStatus.classList.add('logged-in');
+  } else {
+    loginBtn.style.display = 'inline-block';
+    logoutBtn.style.display = 'none';
+    authStatus.textContent = '';
+    authStatus.classList.remove('logged-in');
+  }
+}
+
+/**
+ * Get headers for API requests, including Authorization if logged in
+ */
+function getApiHeaders() {
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+
+  const idToken = getIdToken();
+  if (idToken) {
+    headers['Authorization'] = `Bearer ${idToken}`;
+  }
+
+  return headers;
+}
+
 // ============ LOCAL STORAGE HELPERS ============
 
 function getStoredOrders() {
@@ -39,7 +206,10 @@ async function fetchAndRenderMenu() {
   if (!menuContainer) return;
 
   try {
-    const response = await fetch(`${API_BASE}/menu`);
+    const response = await fetch(`${API_BASE}/menu`, {
+      method: 'GET',
+      headers: getApiHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -114,9 +284,7 @@ async function placeOrder() {
   try {
     const response = await fetch(`${API_BASE}/orders`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getApiHeaders(),
       body: JSON.stringify({ items: apiItems }),
     });
 
@@ -230,6 +398,23 @@ function cycleOrderStatus(orderId) {
 // ============ INITIALIZATION ============
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Parse tokens from URL hash (after Cognito redirect)
+  parseHashTokens();
+  
+  // Update auth UI
+  updateAuthUI();
+
+  // Setup auth button listeners
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', redirectToLogin);
+  }
+
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+  }
+
   // Menu page
   fetchAndRenderMenu();
 

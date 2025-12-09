@@ -38,7 +38,7 @@ img {
 
 .hero {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 24px;
   padding: 28px 24px;
@@ -50,7 +50,7 @@ img {
 }
 
 .hero-compact {
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
 }
 
 .brand {
@@ -334,6 +334,58 @@ main {
   text-align: center;
 }
 
+/* ============ AUTH STYLES ============ */
+
+.auth-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-status {
+  font-size: 13px;
+  color: rgba(46, 42, 38, 0.6);
+  font-weight: 500;
+}
+
+.auth-status.logged-in {
+  color: #285943;
+  background: #e5f3eb;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #c9e5d6;
+  font-size: 12px;
+}
+
+.auth-btn {
+  cursor: pointer;
+  font: 500 14px 'Poppins', system-ui, -apple-system, sans-serif;
+  border: 1px solid rgba(46, 42, 38, 0.15);
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: #fff;
+  color: var(--espresso);
+  transition: all 180ms ease;
+}
+
+.auth-btn:hover,
+.auth-btn:focus-visible {
+  border-color: rgba(46, 42, 38, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(31, 29, 26, 0.1);
+  outline: none;
+}
+
+.auth-btn-logout {
+  background: #fff5ee;
+  border-color: rgba(46, 42, 38, 0.12);
+}
+
+.auth-btn-logout:hover,
+.auth-btn-logout:focus-visible {
+  background: #ffebe0;
+}
+
 @media (max-width: 768px) {
   body {
     padding: 0 14px 32px;
@@ -356,6 +408,10 @@ main {
 
   .order-items .item-row {
     grid-template-columns: 1fr 60px 70px;
+  }
+
+  .auth-container {
+    justify-content: flex-start;
   }
 }
 
